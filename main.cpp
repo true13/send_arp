@@ -140,15 +140,3 @@ unsigned char* IPstr2char(char* IPstr) {
 	return IPchar;
 }
 
-unsigned char* getMyGateway(char* dev) {
-	struct ifreq ifr;
-	char* IPaddr = (char*)malloc(4);
-	int sock = socket(AF_INET, SOCK_STREAM, 0);
-
-	strcpy(ifr.ifr_name, dev);
-	ioctl(sock, SIOCGIFADDR, &ifr);
-
-	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, IPaddr, sizeof(struct sockaddr));
-
-	return (unsigned char*)IPaddr;
-}
