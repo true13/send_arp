@@ -22,6 +22,7 @@ void usage() {
 
 unsigned char* getMyMacaddr(char* dev);
 unsigned char* IPstr2char(char* IPstr);
+char* getMyIP(char* dev);
 
 unsigned char MACbroadcast[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 unsigned char MACno[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -47,6 +48,7 @@ int main(int argc, char* argv[]) {
 	struct ifreq ifr;
 	unsigned char* myIP;
 	unsigned char* myMAC;
+	unsigned char* senderIP;
 	unsigned char* targetIP;
 	unsigned char targetMAC[6];
 	struct ethhdr *sender_ehdr;
@@ -56,9 +58,11 @@ int main(int argc, char* argv[]) {
 	int i, j;
 
 
-	myIP = IPstr2char(sendip);
+	senderIP = IPstr2char(sendip);
+	myIP = (unsigned char *)getMyIP(dev);
 	myMAC = getMyMacaddr(dev);
 	targetIP = IPstr2char(targetip);
+	myIP = IPstr2char((char*)myIP);
 
 	memcpy(sendpacket, MACbroadcast, sizeof(MACbroadcast));
 	memcpy(sendpacket+0x06, myMAC, sizeof(myMAC));
@@ -100,7 +104,7 @@ int main(int argc, char* argv[]) {
 	memcpy(sendpacket+0x13, &PROTOCOLSIZE, sizeof(PROTOCOLSIZE));
 	memcpy(sendpacket+0x14, ARPREPLY, sizeof(ARPREPLY));
 	memcpy(sendpacket+0x16, myMAC, sizeof(myMAC));
-	memcpy(sendpacket+0x1c, myIP, sizeof(myIP)); 
+	memcpy(sendpacket+0x1c, senderIP, sizeof(senderIP)); 
 	memcpy(sendpacket+0x20, targetMAC, sizeof(targetMAC));	
 	memcpy(sendpacket+0x26, targetIP, sizeof(targetIP));
 
@@ -140,3 +144,17 @@ unsigned char* IPstr2char(char* IPstr) {
 	return IPchar;
 }
 
+char* getMyIP(char* dev) {
+	struct ifreq ifr;
+	char* IPaddr = (char*)malloc(4);
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+
+	strcpy(ifr.ifr_name, dev);
+	ioctl(sock, SIOCGIFADDR, &ifr);
+
+	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, IPaddr, sizeof(struct sockaddr));
+
+	printf("%s\n", IPaddr);
+
+	return IPaddr;
+}
